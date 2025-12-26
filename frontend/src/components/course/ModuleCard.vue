@@ -48,7 +48,7 @@
 
 <script setup>
 import { computed } from 'vue'
-import { Clock, FileText, ClipboardCheck, CheckCircle2, Play, Leaf, Tree, Thermometer, Recycle } from 'lucide-vue-next'
+import { Clock, FileText, ClipboardCheck, CheckCircle2, Play, Leaf, TreePine, Thermometer, Recycle } from 'lucide-vue-next'
 
 const props = defineProps({
   module: Object,
@@ -56,7 +56,7 @@ const props = defineProps({
 })
 
 const moduleIcon = computed(() => {
-  const icons = { leaf: Leaf, tree: Tree, thermometer: Thermometer, recycle: Recycle }
+  const icons = { leaf: Leaf, tree: TreePine, thermometer: Thermometer, recycle: Recycle }
   return icons[props.module.icon_name] || Leaf
 })
 </script>
