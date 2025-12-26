@@ -2,9 +2,8 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { testConnection } from './config/database.js';
-import { errorHandler, notFound } from './utils/errorHandler.js';
 
-// Importar rutas
+// Routes
 import authRoutes from './routes/auth.js';
 import courseRoutes from './routes/courses.js';
 import evaluationRoutes from './routes/evaluations.js';
@@ -17,28 +16,35 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ============================================================
-// MIDDLEWARES
-// ============================================================
+// CORS configuration
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  'http://localhost:5173',
+  'https://plataforma-ambiental-eight.vercel.app'
+].filter(Boolean);
 
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
-  credentials: true
+  origin: function(origin, callback) {
+    // Permitir requests sin origin (como mobile apps o curl)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      console.log('CORS blocked origin:', origin);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
+// Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Logging middleware
-app.use((req, res, next) => {
-  console.log(`${req.method} ${req.path} - ${new Date().toISOString()}`);
-  next();
-});
-
-// ============================================================
-// RUTAS
-// ============================================================
-
+// Health check
 app.get('/', (req, res) => {
   res.json({
     success: true,
@@ -55,6 +61,7 @@ app.get('/', (req, res) => {
   });
 });
 
+// API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/courses', courseRoutes);
 app.use('/api/evaluations', evaluationRoutes);
@@ -62,20 +69,28 @@ app.use('/api/certificates', certificateRoutes);
 app.use('/api/institutions', institutionRoutes);
 app.use('/api/reports', reportRoutes);
 
-// ============================================================
-// MANEJO DE ERRORES
-// ============================================================
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    message: 'Ruta no encontrada'
+  });
+});
 
-app.use(notFound);
-app.use(errorHandler);
+// Error handler
+app.use((err, req, res, next) => {
+  console.error('Error:', err);
+  res.status(err.status || 500).json({
+    success: false,
+    message: err.message || 'Error interno del servidor',
+    error: process.env.NODE_ENV === 'development' ? err : {}
+  });
+});
 
-// ============================================================
-// INICIAR SERVIDOR
-// ============================================================
-
+// Start server
 const startServer = async () => {
   try {
-    // Probar conexión a la base de datos
+    // Test database connection
     const dbConnected = await testConnection();
     
     if (!dbConnected) {
@@ -84,26 +99,13 @@ const startServer = async () => {
     }
 
     app.listen(PORT, () => {
-      console.log('');
-      console.log('🌱 ================================================');
+      console.log('\n🌱 ================================================');
       console.log('🌱 PLATAFORMA DE EDUCACIÓN AMBIENTAL');
       console.log('🌱 Universidad Libre Seccional Barranquilla');
       console.log('🌱 ================================================');
-      console.log('');
       console.log(`✅ Servidor corriendo en puerto ${PORT}`);
       console.log(`🌐 URL: http://localhost:${PORT}`);
-      console.log(`🔗 Frontend: ${process.env.FRONTEND_URL}`);
-      console.log('');
-      console.log('📚 Endpoints disponibles:');
-      console.log('   - Auth: http://localhost:' + PORT + '/api/auth');
-      console.log('   - Cursos: http://localhost:' + PORT + '/api/courses');
-      console.log('   - Evaluaciones: http://localhost:' + PORT + '/api/evaluations');
-      console.log('   - Certificados: http://localhost:' + PORT + '/api/certificates');
-      console.log('   - Instituciones: http://localhost:' + PORT + '/api/institutions');
-      console.log('   - Reportes: http://localhost:' + PORT + '/api/reports');
-      console.log('');
-      console.log('🌱 ================================================');
-      console.log('');
+      console.log('🌱 ================================================\n');
     });
   } catch (error) {
     console.error('❌ Error al iniciar el servidor:', error);
@@ -112,14 +114,3 @@ const startServer = async () => {
 };
 
 startServer();
-
-// Manejo de señales de terminación
-process.on('SIGTERM', () => {
-  console.log('👋 SIGTERM recibido. Cerrando servidor...');
-  process.exit(0);
-});
-
-process.on('SIGINT', () => {
-  console.log('👋 SIGINT recibido. Cerrando servidor...');
-  process.exit(0);
-});
